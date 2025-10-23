@@ -17,7 +17,6 @@ import {
   Heart,
   Calendar,
   Clock,
-  Send,
   ExternalLink,
   ThumbsUp,
   Pin,
@@ -39,6 +38,56 @@ import { episodesData } from "@/lib/episodes-data"
 import { mockNews } from "@/lib/news-data"
 import { mockIdeas } from "@/components/ideas-board"
 import { mockToolsData } from "@/components/tools-board"
+
+const mockTopics = [
+  {
+    id: "t1",
+    title: "Finding Your Niche",
+    description: "How to identify underserved markets and validate demand before building",
+    author: "Sarah Chen",
+    votes: 12,
+    createdAt: new Date("2024-02-21"),
+    isCovered: false,
+    urls: [],
+  },
+  {
+    id: "t2",
+    title: "MVP Development Timeline",
+    description: "Realistic timelines for building and launching your first version",
+    author: "Marcus Johnson",
+    votes: 8,
+    createdAt: new Date("2024-02-22"),
+    isCovered: true,
+    urls: ["https://example.com/mvp-guide"],
+  },
+  {
+    id: "t3",
+    title: "Pricing Psychology",
+    description: "How to price your micro SaaS for maximum conversion and retention",
+    author: "Emma Rodriguez",
+    votes: 15,
+    createdAt: new Date("2024-02-23"),
+    isCovered: false,
+    urls: [],
+  },
+]
+
+const mockEpisodeComments = [
+  {
+    id: "c1",
+    author: "David Kim",
+    content:
+      "This would be incredibly valuable! I'm currently in the ideation phase and would love to hear real examples of successful micro SaaS validation.",
+    createdAt: new Date("2024-02-21"),
+  },
+  {
+    id: "c2",
+    author: "Lisa Anderson",
+    content:
+      "Please include a segment on solo founder challenges vs having a co-founder. That's a big decision point for many of us.",
+    createdAt: new Date("2024-02-22"),
+  },
+]
 
 const mockChatMessages = [
   {
@@ -94,56 +143,6 @@ const mockSuggestedEpisode = {
   createdAt: new Date("2024-02-20"),
 }
 
-const mockTopics = [
-  {
-    id: "t1",
-    title: "Finding Your Niche",
-    description: "How to identify underserved markets and validate demand before building",
-    author: "Sarah Chen",
-    votes: 12,
-    createdAt: new Date("2024-02-21"),
-    isCovered: false,
-    urls: [],
-  },
-  {
-    id: "t2",
-    title: "MVP Development Timeline",
-    description: "Realistic timelines for building and launching your first version",
-    author: "Marcus Johnson",
-    votes: 8,
-    createdAt: new Date("2024-02-22"),
-    isCovered: true,
-    urls: ["https://example.com/mvp-guide"],
-  },
-  {
-    id: "t3",
-    title: "Pricing Psychology",
-    description: "How to price your micro SaaS for maximum conversion and retention",
-    author: "Emma Rodriguez",
-    votes: 15,
-    createdAt: new Date("2024-02-23"),
-    isCovered: false,
-    urls: [],
-  },
-]
-
-const mockEpisodeComments = [
-  {
-    id: "c1",
-    author: "David Kim",
-    content:
-      "This would be incredibly valuable! I'm currently in the ideation phase and would love to hear real examples of successful micro SaaS validation.",
-    createdAt: new Date("2024-02-21"),
-  },
-  {
-    id: "c2",
-    author: "Lisa Anderson",
-    content:
-      "Please include a segment on solo founder challenges vs having a co-founder. That's a big decision point for many of us.",
-    createdAt: new Date("2024-02-22"),
-  },
-]
-
 const reactionIcons = {
   "thumbs-up": ThumbsUp,
   flame: Flame,
@@ -182,22 +181,31 @@ const quickReactions = [
 //   urls?: string[];
 // }
 
+// Imported components
+import { EpisodeHeader } from "@/components/episode/episode-header"
+import { EpisodeStreamControls } from "@/components/episode/episode-stream-controls"
+import { EpisodeTopicsSection } from "@/components/episode/episode-topics-section"
+import { EpisodeCommentsSection } from "@/components/episode/episode-comments-section"
+import { EpisodeChat } from "@/components/episode/episode-chat"
+
 export function EpisodeDetail({ episodeId }: { episodeId: string }) {
   const { user } = useAuth()
   const episode = episodesData.find((ep) => ep.id === episodeId)
+
   const [isLiked, setIsLiked] = useState(false)
   const [topics, setTopics] = useState(mockTopics)
   const [votedTopics, setVotedTopics] = useState<Set<string>>(new Set())
-  const [showAddTopic, setShowAddTopic] = useState(false)
-  const [newTopicTitle, setNewTopicTitle] = useState("")
-  const [newTopicDescription, setNewTopicDescription] = useState("")
-  const [newTopicUrls, setNewTopicUrls] = useState<string[]>([""])
   const [episodeComments, setEpisodeComments] = useState(mockEpisodeComments)
-  const [newEpisodeComment, setNewEpisodeComment] = useState("")
   const [chatMessages, setChatMessages] = useState(mockChatMessages)
-  const [newMessage, setNewMessage] = useState("")
-  const [showReactions, setShowReactions] = useState<string | null>(null)
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  const [streamStatus, setStreamStatus] = useState(episode?.streamStatus || "scheduled")
+  const [youtubeUrl, setYoutubeUrl] = useState(episode?.youtubeUrl || "")
+  const [xUrl, setXUrl] = useState(episode?.xUrl || "")
+  const [googleMeetUrl, setGoogleMeetUrl] = useState(episode?.googleMeetUrl || "")
+  const [showStreamUrlInput, setShowStreamUrlInput] = useState(false)
+  const [scheduledDate, setScheduledDate] = useState(
+    episode?.scheduledDate ? episode.scheduledDate.toISOString().slice(0, 16) : "",
+  )
+  const [showScheduleInput, setShowScheduleInput] = useState(false)
 
   // state for Ideas modal
   const [showLinkIdeas, setShowLinkIdeas] = useState(false)
@@ -219,15 +227,6 @@ export function EpisodeDetail({ episodeId }: { episodeId: string }) {
   const [newsTimeFilter, setNewsTimeFilter] = useState<"today" | "week" | "month">("week")
   const [newsCategoryFilter, setNewsCategoryFilter] = useState<string>("all")
   const [newsSearchQuery, setNewsSearchQuery] = useState("") // Added search state for news modal
-  const [streamStatus, setStreamStatus] = useState(episode?.streamStatus || "scheduled")
-  const [youtubeUrl, setYoutubeUrl] = useState(episode?.youtubeUrl || "")
-  const [xUrl, setXUrl] = useState(episode?.xUrl || "")
-  const [googleMeetUrl, setGoogleMeetUrl] = useState(episode?.googleMeetUrl || "")
-  const [showStreamUrlInput, setShowStreamUrlInput] = useState(false)
-  const [scheduledDate, setScheduledDate] = useState(
-    episode?.scheduledDate ? episode.scheduledDate.toISOString().slice(0, 16) : "",
-  )
-  const [showScheduleInput, setShowScheduleInput] = useState(false)
 
   const isSuggested = episode?.status === "suggested"
   const isCompleted = episode?.status === "completed"
@@ -270,99 +269,52 @@ export function EpisodeDetail({ episodeId }: { episodeId: string }) {
     })
   }
 
-  const handleAddTopicUrl = () => {
-    setNewTopicUrls([...newTopicUrls, ""])
-  }
-
-  const handleRemoveTopicUrl = (index: number) => {
-    setNewTopicUrls(newTopicUrls.filter((_, i) => i !== index))
-  }
-
-  const handleTopicUrlChange = (index: number, value: string) => {
-    const updated = [...newTopicUrls]
-    updated[index] = value
-    setNewTopicUrls(updated)
-  }
-
-  const handleSubmitTopic = () => {
-    if (newTopicTitle.trim() && newTopicDescription.trim()) {
-      const topic = {
+  const handleAddTopic = (topic: any) => {
+    setTopics([
+      ...topics,
+      {
+        ...topic,
         id: `t${topics.length + 1}`,
-        title: newTopicTitle,
-        description: newTopicDescription,
-        author: user?.username || "You",
-        votes: 0,
         createdAt: new Date(),
-        isCovered: false,
-        urls: newTopicUrls.filter((url) => url.trim() !== ""),
-      }
-      setTopics([...topics, topic])
-      setNewTopicTitle("")
-      setNewTopicDescription("")
-      setNewTopicUrls([""])
-      setShowAddTopic(false)
-    }
+      },
+    ])
   }
 
   const handleToggleCovered = (topicId: string) => {
     setTopics((prev) => prev.map((topic) => (topic.id === topicId ? { ...topic, isCovered: !topic.isCovered } : topic)))
   }
 
-  const handleSubmitEpisodeComment = () => {
-    if (newEpisodeComment.trim()) {
-      const comment = {
+  const handleAddComment = (content: string) => {
+    setEpisodeComments([
+      ...episodeComments,
+      {
         id: `c${episodeComments.length + 1}`,
         author: user?.username || "You",
-        content: newEpisodeComment,
+        content,
         createdAt: new Date(),
-      }
-      setEpisodeComments([...episodeComments, comment])
-      setNewEpisodeComment("")
-    }
+      },
+    ])
   }
 
-  const openChatWindow = () => {
-    const width = 400
-    const height = 600
-    const left = window.screen.width - width - 20
-    const top = 100
-    window.open(
-      `/episodes/${episodeId}/chat`,
-      "Episode Chat",
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
-    )
-  }
-
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !user) return
-
-    const message = {
-      id: Date.now().toString(),
-      username: user.username,
-      message: newMessage,
-      timestamp: new Date(),
-      upvotes: 0,
-      reactions: [],
-      isPinned: false,
-      upvotedBy: [],
-    }
-
-    setChatMessages((prev) => [...prev, message])
-    setNewMessage("")
+  const handleSendMessage = (message: string) => {
+    if (!user) return
+    setChatMessages([
+      ...chatMessages,
+      {
+        id: Date.now().toString(),
+        username: user.username,
+        message,
+        timestamp: new Date(),
+        upvotes: 0,
+        reactions: [],
+        isPinned: false,
+        upvotedBy: [],
+      },
+    ])
   }
 
   const handlePin = (messageId: string) => {
-    setChatMessages((prev) =>
-      prev.map((msg) => {
-        if (msg.id === messageId) {
-          return {
-            ...msg,
-            isPinned: !msg.isPinned,
-          }
-        }
-        return msg
-      }),
-    )
+    setChatMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, isPinned: !msg.isPinned } : msg)))
   }
 
   const handleReaction = (messageId: string, iconId: string) => {
@@ -389,7 +341,6 @@ export function EpisodeDetail({ episodeId }: { episodeId: string }) {
 
   const handleUpvote = (messageId: string) => {
     if (!user) return
-
     setChatMessages((prev) =>
       prev.map((msg) => {
         if (msg.id === messageId) {
@@ -405,10 +356,106 @@ export function EpisodeDetail({ episodeId }: { episodeId: string }) {
     )
   }
 
+  const openChatWindow = () => {
+    const width = 400
+    const height = 600
+    const left = window.screen.width - width - 20
+    const top = 100
+    window.open(
+      `/episodes/${episodeId}/chat`,
+      "Episode Chat",
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
+    )
+  }
+
+  const handleStartStream = () => {
+    if (!youtubeUrl.trim() && streamStatus === "scheduled") {
+      setShowStreamUrlInput(true)
+      return
+    }
+    setStreamStatus("live")
+    setShowStreamUrlInput(false)
+  }
+
+  const handleEndStream = () => {
+    setStreamStatus("finished")
+  }
+
+  const handleMarkCompleted = () => {
+    setStreamStatus("completed")
+  }
+
+  const handleSchedule = () => {
+    if (scheduledDate) {
+      console.log("[v0] Episode scheduled for:", scheduledDate)
+      setShowScheduleInput(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isSuggested) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [chatMessages, isSuggested])
+
+  const handleAddTopicUrl = () => {
+    setNewTopicUrls([...newTopicUrls, ""])
+  }
+
+  const handleRemoveTopicUrl = (index: number) => {
+    setNewTopicUrls(newTopicUrls.filter((_, i) => i !== index))
+  }
+
+  const handleTopicUrlChange = (index: number, value: string) => {
+    const updated = [...newTopicUrls]
+    updated[index] = value
+    setNewTopicUrls(updated)
+  }
+
+  const [newTopicTitle, setNewTopicTitle] = useState("")
+  const [newTopicDescription, setNewTopicDescription] = useState("")
+  const [newTopicUrls, setNewTopicUrls] = useState<string[]>([""])
+
+  const handleSubmitTopic = () => {
+    if (newTopicTitle.trim() && newTopicDescription.trim()) {
+      const topic = {
+        id: `t${topics.length + 1}`,
+        title: newTopicTitle,
+        description: newTopicDescription,
+        author: user?.username || "You",
+        votes: 0,
+        createdAt: new Date(),
+        isCovered: false,
+        urls: newTopicUrls.filter((url) => url.trim() !== ""),
+      }
+      setTopics([...topics, topic])
+      setNewTopicTitle("")
+      setNewTopicDescription("")
+      setNewTopicUrls([""])
+      setShowAddTopic(false)
+    }
+  }
+
+  const [newEpisodeComment, setNewEpisodeComment] = useState("")
+  const handleSubmitEpisodeComment = () => {
+    if (newEpisodeComment.trim()) {
+      const comment = {
+        id: `c${episodeComments.length + 1}`,
+        author: user?.username || "You",
+        content: newEpisodeComment,
+        createdAt: new Date(),
+      }
+      setEpisodeComments([...episodeComments, comment])
+      setNewEpisodeComment("")
+    }
+  }
+
+  const [newMessage, setNewMessage] = useState("")
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage()
+      handleSendMessage(newMessage)
+      setNewMessage("")
     }
   }
 
@@ -621,35 +668,9 @@ export function EpisodeDetail({ episodeId }: { episodeId: string }) {
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }
 
-  const handleStartStream = () => {
-    if (!youtubeUrl.trim() && streamStatus === "scheduled") {
-      setShowStreamUrlInput(true)
-      return
-    }
-    setStreamStatus("live")
-    setShowStreamUrlInput(false)
-  }
-
-  const handleEndStream = () => {
-    setStreamStatus("finished")
-  }
-
-  const handleMarkCompleted = () => {
-    setStreamStatus("completed")
-  }
-
-  const handleSchedule = () => {
-    if (scheduledDate) {
-      console.log("[v0] Episode scheduled for:", scheduledDate)
-      setShowScheduleInput(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!isSuggested) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
-    }
-  }, [chatMessages, isSuggested])
+  const [showAddTopic, setShowAddTopic] = useState(false)
+  const [showReactions, setShowReactions] = useState<string | null>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
 
   if (!episode) {
     return (
@@ -1800,27 +1821,9 @@ export function EpisodeDetail({ episodeId }: { episodeId: string }) {
                 ))}
               </div>
 
-              {user ? (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Type your message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  <Link href="/auth" className="text-primary hover:underline">
-                    Sign in
-                  </Link>{" "}
-                  to join the chat
-                </div>
-              )}
+              <div className="mt-4 text-center py-2 text-sm text-muted-foreground">
+                This chat is archived and read-only
+              </div>
             </Card>
           )}
         </div>
@@ -2226,631 +2229,68 @@ export function EpisodeDetail({ episodeId }: { episodeId: string }) {
         Back to Episodes
       </Link>
 
-      <Card className="overflow-hidden mb-6">
-        <div className="relative w-full h-64 bg-muted"></div>
+      <div className="space-y-6">
+        <EpisodeHeader
+          episode={episode}
+          isLiked={isLiked}
+          onToggleLike={() => setIsLiked(!isLiked)}
+          displayLikes={displayLikes}
+          isSuggested={isSuggested}
+        />
 
-        <div className="p-6">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">{episode.title}</h1>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    {episode.date.toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-                <span>•</span>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  <span>{episode.duration}</span>
-                </div>
-                <span>•</span>
-                <span>Hosted by {episode.host}</span>
-              </div>
-            </div>
+        {isAdmin && isLiveStream && (
+          <EpisodeStreamControls
+            streamStatus={streamStatus}
+            youtubeUrl={youtubeUrl}
+            xUrl={xUrl}
+            googleMeetUrl={googleMeetUrl}
+            scheduledDate={scheduledDate}
+            showStreamUrlInput={showStreamUrlInput}
+            showScheduleInput={showScheduleInput}
+            onYoutubeUrlChange={setYoutubeUrl}
+            onXUrlChange={setXUrl}
+            onGoogleMeetUrlChange={setGoogleMeetUrl}
+            onScheduledDateChange={setScheduledDate}
+            onStartStream={handleStartStream}
+            onEndStream={handleEndStream}
+            onMarkCompleted={handleMarkCompleted}
+            onSchedule={handleSchedule}
+            onToggleStreamUrlInput={() => setShowStreamUrlInput(!showStreamUrlInput)}
+            onToggleScheduleInput={() => setShowScheduleInput(!showScheduleInput)}
+          />
+        )}
 
-            <button
-              onClick={() => setIsLiked(!isLiked)}
-              className={`flex flex-col items-center justify-center min-w-[60px] h-[60px] border-2 transition-colors ${
-                isLiked
-                  ? "bg-[var(--vote-active)] border-[var(--vote-active)] text-white"
-                  : "border-border hover:border-[var(--vote-up)] hover:bg-[var(--vote-up)]/10"
-              }`}
-            >
-              <Heart className={`h-5 w-5 ${isLiked ? "fill-current" : ""}`} />
-              <span className="text-sm font-bold">{displayLikes}</span>
-            </button>
-          </div>
+        <EpisodeTopicsSection
+          topics={topics}
+          votedTopics={votedTopics}
+          isCompleted={isCompleted}
+          isAdmin={isAdmin}
+          onTopicVote={handleTopicVote}
+          onToggleCovered={handleToggleCovered}
+          onAddTopic={handleAddTopic}
+          onLinkIdeas={handleOpenLinkIdeas}
+          onLinkTools={handleOpenLinkTools}
+          onLinkNews={handleOpenLinkNews}
+          username={user?.username}
+        />
 
-          <div className="flex gap-2 mb-4">
-            <Badge className="bg-[var(--status-complete)] text-white">{episode.status}</Badge>
-            {isLiveStream && streamStatus === "live" && (
-              <Badge className="bg-red-500 text-white animate-pulse">● LIVE</Badge>
-            )}
-          </div>
+        <EpisodeCommentsSection comments={episodeComments} onAddComment={handleAddComment} username={user?.username} />
 
-          <p className="text-muted-foreground leading-relaxed">{episode.description}</p>
-        </div>
-      </Card>
-
-      {isAdmin && isLiveStream && (
-        <Card className="p-4 bg-muted/50 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold mb-1">Stream Controls</h3>
-              <p className="text-sm text-muted-foreground">
-                {streamStatus === "scheduled" && "Stream is scheduled. Start when ready."}
-                {streamStatus === "live" && "Stream is live! Users can see the chat."}
-                {streamStatus === "ended" && "Stream has ended. Chat is archived."}
-                {streamStatus === "finished" && "Stream has finished. Mark as completed when ready."}
-                {streamStatus === "completed" && "Stream is completed and archived."}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {streamStatus === "scheduled" && (
-                <Button onClick={handleStartStream} className="bg-red-500 hover:bg-red-600">
-                  Start Stream
-                </Button>
-              )}
-              {streamStatus === "live" && (
-                <Button onClick={handleEndStream} variant="destructive">
-                  End Stream
-                </Button>
-              )}
-              {streamStatus === "finished" && (
-                <Button onClick={handleMarkCompleted} className="bg-green-600 hover:bg-green-700">
-                  Mark as Completed
-                </Button>
-              )}
-              {streamStatus === "completed" && (
-                <Button onClick={() => setStreamStatus("scheduled")} variant="outline">
-                  Reset to Scheduled
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Chat Section */}
-      {showChat && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold">Live Chat</h2>
-              {streamStatus === "live" && <Badge className="bg-red-500 text-white">● LIVE</Badge>}
-              {isAdmin && streamStatus !== "live" && (
-                <Badge className="bg-muted text-muted-foreground">Admin Preview</Badge>
-              )}
-            </div>
-            <Button variant="outline" size="sm" onClick={openChatWindow}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open in new window
-            </Button>
-          </div>
-
-          {pinnedMessages.length > 0 && (
-            <div className="mb-4 space-y-3 border border-border p-4 bg-muted/30">
-              {pinnedMessages.map((msg) => (
-                <div key={msg.id} className="space-y-2 bg-background/50 p-3 border border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-baseline gap-2">
-                      <Pin className="h-3 w-3 text-primary" />
-                      <span className="font-semibold text-xs text-muted-foreground">{msg.username}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {msg.timestamp.toLocaleTimeString("en-US", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    {isAdmin && (
-                      <Button variant="ghost" size="sm" onClick={() => handlePin(msg.id)} className="h-6 px-2">
-                        Unpin
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-base leading-relaxed">{msg.message}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="space-y-4 mb-4 max-h-96 overflow-y-auto border border-border p-4 bg-muted/20">
-            {regularMessages.map((msg) => (
-              <div key={msg.id} className="space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-semibold text-xs text-muted-foreground">{msg.username}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {msg.timestamp.toLocaleTimeString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    {msg.timestamp.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-                <p className="text-base leading-relaxed">{msg.message}</p>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {msg.reactions.map((reaction, idx) => {
-                    const IconComponent = reactionIcons[reaction.icon as keyof typeof reactionIcons]
-                    return (
-                      <button
-                        key={idx}
-                        className="text-sm px-2 py-1 bg-muted hover:bg-muted/80 border border-border flex items-center gap-1.5"
-                        onClick={() => handleReaction(msg.id, reaction.icon)}
-                      >
-                        {IconComponent && <IconComponent className="h-3.5 w-3.5" />}
-                        <span className="text-xs text-muted-foreground">{reaction.count}</span>
-                      </button>
-                    )
-                  })}
-
-                  <div className="flex items-center gap-1">
-                    {user && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleUpvote(msg.id)}
-                        className={`h-7 px-2 gap-1 ${msg.upvotedBy.includes(user.id) ? "text-primary" : ""}`}
-                      >
-                        <ThumbsUp className="h-3 w-3" />
-                        <span className="text-xs">{msg.upvotes}</span>
-                      </Button>
-                    )}
-
-                    {user && (
-                      <div className="relative">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowReactions(showReactions === msg.id ? null : msg.id)}
-                          className="h-7 px-2"
-                        >
-                          <Smile className="h-3 w-3" />
-                        </Button>
-                        {showReactions === msg.id && (
-                          <div className="absolute bottom-full mb-1 left-0 bg-background border border-border p-2 flex gap-1 shadow-lg z-10">
-                            {quickReactions.map((reaction) => {
-                              const IconComponent = reactionIcons[reaction.id as keyof typeof reactionIcons]
-                              return (
-                                <button
-                                  key={reaction.id}
-                                  onClick={() => {
-                                    handleReaction(msg.id, reaction.id)
-                                    setShowReactions(null)
-                                  }}
-                                  className="p-1.5 hover:bg-muted transition-colors"
-                                  title={reaction.label}
-                                >
-                                  {IconComponent && <IconComponent className="h-4 w-4" />}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handlePin(msg.id)}
-                        className="h-7 px-2 text-primary"
-                        title="Pin message"
-                      >
-                        <Pin className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-
-          {user ? (
-            <div className="flex gap-2">
-              <Input
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="flex-1"
-              />
-              <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center py-4 text-muted-foreground">
-              <Link href="/auth" className="text-primary hover:underline">
-                Sign in
-              </Link>{" "}
-              to join the chat
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* Link News Dialog */}
-      <Dialog open={showLinkNews} onOpenChange={setShowLinkNews}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Link News to Episode</DialogTitle>
-            <DialogDescription>
-              Select news items to add as topics for this episode. You can select multiple items.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search news by title or description..."
-                value={newsSearchQuery}
-                onChange={(e) => setNewsSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-4 pb-4 border-b border-border">
-              <div className="text-sm text-muted-foreground">
-                {selectedNewsIds.size} of {getFilteredNews().filter((n) => !linkedNewsIds.has(n.id)).length} selected
-              </div>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={newsTimeFilter}
-                  onValueChange={(value: "today" | "week" | "month") => setNewsTimeFilter(value)}
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="sm" onClick={handleToggleAllNews} className="shrink-0">
-                  {getFilteredNews().every((news) => selectedNewsIds.has(news.id) || linkedNewsIds.has(news.id))
-                    ? "Deselect All"
-                    : "Select All"}
-                </Button>
-              </div>
-            </div>
-
-            {/* News List */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-              {getFilteredNews().length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No news items found for the selected date range.
-                </p>
-              ) : (
-                getFilteredNews().map((news) => {
-                  const isLinked = linkedNewsIds.has(news.id)
-                  const isSelected = selectedNewsIds.has(news.id)
-
-                  return (
-                    <div
-                      key={news.id}
-                      className={`flex items-start gap-3 p-4 border transition-colors ${
-                        isLinked
-                          ? "border-green-500/50 bg-green-500/5 opacity-60"
-                          : isSelected
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <Checkbox
-                        id={`news-${news.id}`}
-                        checked={isSelected}
-                        disabled={isLinked}
-                        onCheckedChange={() => handleToggleNewsSelection(news.id)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <Label
-                          htmlFor={`news-${news.id}`}
-                          className={`font-semibold cursor-pointer ${isLinked ? "text-muted-foreground" : ""}`}
-                        >
-                          {news.title}
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{news.description}</p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                          <span>{news.votes} votes</span>
-                          <span>•</span>
-                          <span>
-                            {new Date(news.createdAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </span>
-                          {news.references.length > 0 && (
-                            <>
-                              <span>•</span>
-                              <span>{news.references.length} references</span>
-                            </>
-                          )}
-                        </div>
-                        {isLinked && <Badge className="bg-green-500 text-white mt-2 text-xs">Already Linked</Badge>}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-4 border-t border-border">
-              <Button variant="outline" onClick={() => setShowLinkNews(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleLinkNews} disabled={selectedNewsIds.size === 0}>
-                Add {selectedNewsIds.size} News {selectedNewsIds.size === 1 ? "Item" : "Items"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Link Ideas Dialog */}
-      <Dialog open={showLinkIdeas} onOpenChange={setShowLinkIdeas}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Link Ideas to Episode</DialogTitle>
-            <DialogDescription>
-              Select ideas to add as topics for this episode. You can select multiple items.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search ideas by title or description..."
-                value={ideaSearchQuery}
-                onChange={(e) => setIdeaSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-4 pb-4 border-b border-border">
-              <div className="text-sm text-muted-foreground">
-                {selectedIdeaIds.size} of {getFilteredIdeas().filter((i) => !linkedIdeaIds.has(i.id)).length} selected
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={ideaCategoryFilter} onValueChange={setIdeaCategoryFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="Productivity">Productivity</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="Product">Product</SelectItem>
-                    <SelectItem value="Analytics">Analytics</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="sm" onClick={handleToggleAllIdeas} className="shrink-0">
-                  {getFilteredIdeas().every((idea) => selectedIdeaIds.has(idea.id) || linkedIdeaIds.has(idea.id))
-                    ? "Deselect All"
-                    : "Select All"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Ideas List */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-              {getFilteredIdeas().length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No ideas found for the selected category.</p>
-              ) : (
-                getFilteredIdeas().map((idea) => {
-                  const isLinked = linkedIdeaIds.has(idea.id)
-                  const isSelected = selectedIdeaIds.has(idea.id)
-
-                  return (
-                    <div
-                      key={idea.id}
-                      className={`flex items-start gap-3 p-4 border transition-colors ${
-                        isLinked
-                          ? "border-green-500/50 bg-green-500/5 opacity-60"
-                          : isSelected
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <Checkbox
-                        id={`idea-${idea.id}`}
-                        checked={isSelected}
-                        disabled={isLinked}
-                        onCheckedChange={() => handleToggleIdeaSelection(idea.id)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <Label
-                          htmlFor={`idea-${idea.id}`}
-                          className={`font-semibold cursor-pointer ${isLinked ? "text-muted-foreground" : ""}`}
-                        >
-                          {idea.title}
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{idea.description}</p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                          <Badge variant="outline" className="text-xs">
-                            {idea.category}
-                          </Badge>
-                          <span>{idea.votes} votes</span>
-                          <span>•</span>
-                          <span>
-                            {new Date(idea.createdAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        {isLinked && <Badge className="bg-green-500 text-white mt-2 text-xs">Already Linked</Badge>}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-4 border-t border-border">
-              <Button variant="outline" onClick={() => setShowLinkIdeas(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleLinkIdeas} disabled={selectedIdeaIds.size === 0}>
-                Add {selectedIdeaIds.size} {selectedIdeaIds.size === 1 ? "Idea" : "Ideas"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Link Tools Dialog */}
-      <Dialog open={showLinkTools} onOpenChange={setShowLinkTools}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Link Tools to Episode</DialogTitle>
-            <DialogDescription>
-              Select tools to add as topics for this episode. You can select multiple items.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tools by title or description..."
-                value={toolSearchQuery}
-                onChange={(e) => setToolSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-4 pb-4 border-b border-border">
-              <div className="text-sm text-muted-foreground">
-                {selectedToolIds.size} of {getFilteredTools().filter((t) => !linkedToolIds.has(t.id)).length} selected
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={toolCategoryFilter} onValueChange={setToolCategoryFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="Design">Design</SelectItem>
-                    <SelectItem value="Collaboration">Collaboration</SelectItem>
-                    <SelectItem value="Productivity">Productivity</SelectItem>
-                    <SelectItem value="Documentation">Documentation</SelectItem>
-                    <SelectItem value="Project Management">Project Management</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="sm" onClick={handleToggleAllTools} className="shrink-0">
-                  {getFilteredTools().every((tool) => selectedToolIds.has(tool.id) || linkedToolIds.has(tool.id))
-                    ? "Deselect All"
-                    : "Select All"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Tools List */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-              {getFilteredTools().length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No tools found for the selected category.</p>
-              ) : (
-                getFilteredTools().map((tool) => {
-                  const isLinked = linkedToolIds.has(tool.id)
-                  const isSelected = selectedToolIds.has(tool.id)
-
-                  return (
-                    <div
-                      key={tool.id}
-                      className={`flex items-start gap-3 p-4 border transition-colors ${
-                        isLinked
-                          ? "border-green-500/50 bg-green-500/5 opacity-60"
-                          : isSelected
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <Checkbox
-                        id={`tool-${tool.id}`}
-                        checked={isSelected}
-                        disabled={isLinked}
-                        onCheckedChange={() => handleToggleToolSelection(tool.id)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <Label
-                          htmlFor={`tool-${tool.id}`}
-                          className={`font-semibold cursor-pointer ${isLinked ? "text-muted-foreground" : ""}`}
-                        >
-                          {tool.title}
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{tool.description}</p>
-                        <a
-                          href={tool.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {tool.url}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                        <div className="flex items-center gap-2 flex-wrap mt-2">
-                          {tool.categories.map((category) => (
-                            <Badge key={category} variant="outline" className="text-xs">
-                              {category}
-                            </Badge>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                          <span>{tool.votes} votes</span>
-                          <span>•</span>
-                          <span>
-                            {new Date(tool.createdAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        {isLinked && <Badge className="bg-green-500 text-white mt-2 text-xs">Already Linked</Badge>}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-4 border-t border-border">
-              <Button variant="outline" onClick={() => setShowLinkTools(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleLinkTools} disabled={selectedToolIds.size === 0}>
-                Add {selectedToolIds.size} {selectedToolIds.size === 1 ? "Tool" : "Tools"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        {showChat && (
+          <EpisodeChat
+            messages={chatMessages}
+            streamStatus={streamStatus}
+            isCompleted={isCompleted}
+            isAdmin={isAdmin}
+            userId={user?.id}
+            onSendMessage={handleSendMessage}
+            onPin={handlePin}
+            onReaction={handleReaction}
+            onUpvote={handleUpvote}
+            onOpenChatWindow={openChatWindow}
+          />
+        )}
+      </div>
     </div>
   )
 }
